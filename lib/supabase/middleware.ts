@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const PUBLIC_ROUTES = ["/", "/login"];
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -25,6 +27,29 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+  const path = request.nextUrl.pathname;
+
+  // Helper to copy session cookies onto a redirect
+  const redirectWithSession = (toPath: string) => {
+    const url = request.nextUrl.clone();
+    url.pathname = toPath;
+    const redirect = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach(c =>
+      redirect.cookies.set(c.name, c.value, c)
+    );
+    return redirect;
+  };
+
+  // Not authed + protected route -> /login
+  if (!user && !PUBLIC_ROUTES.includes(path) && !path.startsWith("/auth")) {
+    return redirectWithSession("/login");
+  }
+
+  // Authed + on /login or / -> /hq
+  if (user && (path === "/login" || path === "/")) {
+    return redirectWithSession("/hq");
+  }
+
   return supabaseResponse;
 }
