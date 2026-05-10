@@ -26,7 +26,7 @@ function LoginForm() {
       formData.append("full_name", fullName);
       formData.append("email", email);
       try {
-        const result = await sendMagicLink(formData);
+        const result = await sendMagicLink({ email, fullName });
         if (result && typeof result === "object" && "error" in result && result.error) {
           setError(String(result.error));
         } else {
