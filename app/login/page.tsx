@@ -1,125 +1,117 @@
 "use client";
+
 export const dynamic = "force-dynamic";
 
-import { useState, useTransition } from "react";
+import { Suspense, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { Logo } from "@/components/brand/Logo";
+import Link from "next/link";
+import { Logo, Wordmark } from "@/components/brand/Logo";
 import { sendMagicLink } from "./actions";
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
-  const urlError = searchParams.get("error");
+  const errorParam = searchParams.get("error");
 
-  const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [pending, startTransition] = useTransition();
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState(urlError ? "Login link expired or invalid. Try again." : "");
+  const [email, setEmail] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError(null);
     startTransition(async () => {
-      const result = await sendMagicLink({ email, fullName });
-      if (result.error) setError(result.error);
-      else setSent(true);
+      const formData = new FormData();
+      formData.append("full_name", fullName);
+      formData.append("email", email);
+      try {
+        const result = await sendMagicLink(formData);
+        if (result && typeof result === "object" && "error" in result && result.error) {
+          setError(String(result.error));
+        } else {
+          setSuccess(true);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
     });
   };
 
-  if (sent) {
+  if (success) {
     return (
-      <main className="min-h-screen flex items-center justify-center px-6">
-        <div className="max-w-md w-full text-center animate-fade-up">
-          <div className="text-6xl mb-6 animate-float">✉️</div>
-          <h1 className="font-display text-4xl font-light mb-3">
-            Check your <em className="text-gold">email.</em>
-          </h1>
-          <p className="text-sand mb-2">
-            A magic link is on its way to
-          </p>
-          <p className="text-gold font-mono text-sm mb-8">{email}</p>
-          <p className="text-ash text-sm mb-8 max-w-xs mx-auto leading-relaxed">
-            Click the link from this same browser to enter G100. The link expires in 1 hour.
-          </p>
-          <button
-            onClick={() => { setSent(false); setEmail(""); setFullName(""); }}
-            className="font-mono text-[10px] uppercase tracking-[0.25em] text-ash hover:text-cream transition cursor-pointer"
-          >
-            Try a different email
-          </button>
-        </div>
-      </main>
+      <div className="text-center py-4">
+        <div className="text-5xl mb-6 animate-fade-up">📬</div>
+        <h2 className="font-display text-2xl lg:text-3xl text-cream mb-3 font-light">Check your email.</h2>
+        <p className="text-sand text-sm">
+          We sent a magic link to <span className="text-gold">{email}</span>
+        </p>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-ash mt-6">Click it from any device to sign in</p>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
-      <div className="max-w-sm w-full">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {(errorParam || error) && (
+        <div className="bg-ember/10 border border-ember/30 text-ember text-xs rounded-lg px-3 py-2.5 font-mono">
+          {error || (errorParam === "auth_failed" ? "Magic link expired. Try again." : String(errorParam))}
+        </div>
+      )}
+      <div>
+        <label className="font-mono text-[9px] uppercase tracking-[0.25em] text-ash block mb-1.5">Your name</label>
+        <input
+          type="text"
+          required
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          placeholder="Full name"
+          className="w-full bg-night border border-line rounded-lg px-3 py-3 text-cream text-sm placeholder:text-ash focus:border-gold/40 focus:outline-none transition"
+        />
+      </div>
+      <div>
+        <label className="font-mono text-[9px] uppercase tracking-[0.25em] text-ash block mb-1.5">Email</label>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="w-full bg-night border border-line rounded-lg px-3 py-3 text-cream text-sm placeholder:text-ash focus:border-gold/40 focus:outline-none transition"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={isPending}
+        className="w-full bg-gold text-night font-mono text-xs font-bold uppercase tracking-[0.2em] py-3.5 rounded-xl hover:brightness-110 active:scale-[0.98] transition disabled:opacity-50 cursor-pointer"
+      >
+        {isPending ? "Sending..." : "Send magic link →"}
+      </button>
+    </form>
+  );
+}
 
-        <div className="flex flex-col items-center mb-12 animate-fade-up">
-          <Logo size="lg" glow />
-          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-gold mt-4">
-            The Hundred · Members only
+export default function LoginPage() {
+  return (
+    <main className="min-h-screen flex items-center justify-center px-5 py-10">
+      <div className="w-full max-w-sm animate-fade-up">
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <Logo size="lg" glow />
           </div>
+          <Wordmark className="text-3xl mb-2 inline-block" />
+          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-ash mt-1">The Hundred · Port Harcourt</div>
         </div>
 
-        <div className="text-center mb-8 animate-fade-up delay-100">
-          <h1 className="font-display text-4xl font-light tracking-tight mb-2">
-            Enter <em className="text-gold">G100.</em>
-          </h1>
-          <p className="text-sand text-sm">
-            One link. No passwords. Pure cruise.
-          </p>
+        <div className="bg-coal border border-line rounded-2xl p-6 lg:p-8">
+          <Suspense fallback={<div className="font-mono text-xs text-ash text-center py-8">Loading...</div>}>
+            <LoginForm />
+          </Suspense>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 animate-fade-up delay-200">
-          <div>
-            <label className="font-mono text-[9px] uppercase tracking-[0.25em] text-ash block mb-2">
-              Full name <span className="text-bronze normal-case tracking-normal">(new members only)</span>
-            </label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Tobi Adeyemi"
-              className="w-full bg-coal border border-line rounded-xl px-4 py-3.5 text-cream placeholder:text-ash focus:border-gold/40 focus:outline-none transition"
-            />
-          </div>
-
-          <div>
-            <label className="font-mono text-[9px] uppercase tracking-[0.25em] text-ash block mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              className="w-full bg-coal border border-line rounded-xl px-4 py-3.5 text-cream placeholder:text-ash focus:border-gold/40 focus:outline-none transition"
-            />
-          </div>
-
-          {error && (
-            <div className="text-sm text-ember bg-ember/10 border border-ember/30 rounded-xl px-4 py-3 animate-fade-in">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={pending || !email}
-            className="w-full bg-gold text-night font-mono text-xs font-bold uppercase tracking-[0.2em] py-4 rounded-xl hover:brightness-110 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {pending ? "Sending..." : "Send magic link →"}
-          </button>
-        </form>
-
-        <div className="mt-12 text-center animate-fade-up delay-300">
-          <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-ash">
-            Membership by referral · 100 seats only
-          </p>
-        </div>
+        <p className="text-center text-xs text-ash mt-6 font-mono">
+          Members only · <Link href="/" className="text-gold hover:underline">← Back</Link>
+        </p>
       </div>
     </main>
   );
